@@ -25,15 +25,21 @@ Compilers that target the runtime produce *managed modules* that contain these c
   - Module metadata location
   - Resources
 * Metadata
-  - Defined type and member tables
-  - Referenced type and member tables
+  - Definition tables
+  - Referenced tables
+  - Manifest tables
 * IL code
 
 ## Assemblies
-Compilers do the work of turning managed modules and resources files into an *assembly*.
-Each assembly can be an executable application or a DLL. 
-Assemblies contain a manifest describing the modules and resources inside.
-The CLR is responsible for managing the execution of code contained within these assemblies.
+Compilers do the work of turning managed modules and resources files into an *assembly*. Each assembly can be an executable application or a DLL.
+
+In most cases, an assembly consists of a single file, however, an assembly can also consist of multiple files. 
+
+One of the files in an assembly is designated to contain a manifest. The manifest is a set of metadata tables that describe the assembly’s version, culture, publisher, publicly exported types, and all of the files that comprise the assembly.
+
+To build an assembly, you must select one of your PE files to be the keeper of the manifest. Or you can create a separate PE file that contains nothing but the manifest. When building an assembly, you should set the version resource fields by using custom attributes that you apply at the assembly level in your source code.
+
+The CLR is responsible for managing the execution of code contained within these assemblies. The CLR always loads the file that contains the manifest metadata tables first and then uses the manifest to get the names of the other files that contain the types and resources the application is referencing.
 
 An assembly is the smallest unit of:
 * Reuse
@@ -62,11 +68,7 @@ Managed code can easily call functions contained in DLLs by using a mechanism ca
 
 Multiple managed applications can run in a single Windows virtual address space.
 
-# Compilation
-## Switches
-`/unsafe` allows unsafe code: working directly with memory addresses and manipulation of bytes
-
-# The CTS
+## The CTS
 The Common Type System (CTS) describes how types are defined and how they behave.
 
 Types can have 0+ members. The CTS specifies the rules for type visibility and access, type inheritance, virtual methods, object lifetime, etc.
@@ -78,7 +80,7 @@ All types must inherit from a predefined type `System.Object` which allows you t
 * Perform a shallow (bitwise) copy of the instance. 
 * Obtain a string representation of the instance object’s current state.
 
-# The CLS
+## The CLS
 The Common Language Specification (CLS) specifies the minimum set of features compilers must support to generate types compatible with other components written by other CLS-compliant languages on top of the CLR.
 
 The CLR/CTS supports a lot more features than the subset defined by the CLS.
@@ -89,3 +91,56 @@ Telling the compiler to check for CLS compliance in C#:
 `[assembly: CLSCompliant(true)]`
 
 For a complete list of CLS rules, refer to the “Cross-Language Interoperability” section in the .NET Framework.
+
+## Compilation
+## Using the C# compiler
+`csc.exe /out:Program.exe /t[arget]:exe /r[eference]:MSCorLib.dll Program.cs`
+
+or simply `csc.exe Program.cs`
+
+## Switches
+`/unsafe` allows unsafe code: working directly with memory addresses and manipulation of bytes
+
+`/nostdlib` don't reference MSCorLib.dll
+
+`/resource` embed resource
+
+`/linkresource` refer to a standalone resource file
+
+`/win32icon` specify an .ico file
+
+### Producing an assembly
+`/t:exe` console user interface (CUI) application
+
+`/t:winexe` graphical user interface (GUI) application
+
+`/t:appcontainerexe` Windows Store app
+
+`/t[arget]:library` class library
+
+`/t[arget]:winmdobj` WINMD library
+
+### Modules
+`/t[arget]:module` DLL PE file which must be added to an assembly before the CLR can access any types within it
+
+`/addmodule` add a module to an assembly when building a PE file with a manifest
+
+### AL.exe utility
+Produce an EXE or a DLL PE file that contains only a manifest describing the types in other modules.
+
+`csc /t:module FirstModule.cs`
+
+`csc /t:module SecondModule.cs` 
+
+`al  /out: MultiFileLibrary.dll /t:library FirstModule.netmodule SecondModule.netmodule`
+
+#### Switches
+`/embed[resource]` add a file as a resource to the assembly 
+`/link[resource]` takes a file containing resources. The resource file is not embedded into the assembly PE file.
+
+### Response files
+Any switches specified inside an .rsp file are passed to csc.exe on the command line. The name is specified in the command line by prepending an @ sign. Any settings explicitly passed on the command line override the settings taken from a local response file. There is a global CSC.rsp file located next to csc.exe which references commonly used assemblies.
+
+Response files are searched in the working directory, CSC.exe file directory, any directories specified using `/lib` or the LIB environment variable.
+
+`csc.exe @MyProject.rsp CodeFile1.cs CodeFile2.cs`
